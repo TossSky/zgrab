@@ -207,7 +207,16 @@ func extractHeaders(raw map[string][]string) *SIPHeaders {
 	h.To = getFirst("to")
 	h.CallID = getFirst("call-id")
 	h.CSeq = getFirst("cseq")
-	h.Via = raw["via"]
+
+	if viaVals, ok := raw["via"]; ok {
+        cleanedVia := make([]string, 0, len(viaVals))
+        for _, via := range viaVals {
+            // Удаляем параметр received из строки Via
+            cleaned := removeReceivedParam(via)
+            cleanedVia = append(cleanedVia, cleaned)
+        }
+        h.Via = cleanedVia
+    }
 	h.Allow = getFirst("allow")
 	h.Supported = getFirst("supported")
 	h.UserAgent = getFirst("user-agent")
@@ -234,6 +243,23 @@ func extractHeaders(raw map[string][]string) *SIPHeaders {
 	}
 
 	return h
+}
+
+func removeReceivedParam(via string) string {
+    parts := strings.Split(via, ";")
+    if len(parts) <= 1 {
+        return via
+    }
+    
+    // Оставляем первую часть (IP/протокол) и все параметры КРОМЕ received
+    result := []string{parts[0]}
+    for i := 1; i < len(parts); i++ {
+        if ((!strings.HasPrefix(strings.TrimSpace(parts[i]), "received"))&&(!strings.HasPrefix(strings.TrimSpace(parts[i]), "rport"))) {
+            result = append(result, parts[i])
+        }
+    }
+    
+    return strings.Join(result, ";")
 }
 
 func parseSDP(body string) *SDPInfo {
